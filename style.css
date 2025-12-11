@@ -9,6 +9,11 @@ body {
     background-size: cover;
     font-family: sans-serif;
     overflow: hidden;
+    /* Ensure no text selection interferes with touch controls */
+    user-select: none;
+    -webkit-user-select: none; 
+    -ms-user-select: none;
+    touch-action: none; /* Prevents scrolling when dragging finger */
 }
 
 #game-container {
@@ -20,6 +25,8 @@ body {
     background-color: rgba(0, 0, 0, 0.7); 
     position: relative;
     overflow: hidden;
+    /* Ensure touch events are handled here */
+    touch-action: none; 
 }
 
 #player {

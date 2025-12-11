@@ -2,19 +2,39 @@ const gameContainer = document.getElementById('game-container');
 const player = document.getElementById('player');
 const scoreDisplay = document.getElementById('score');
 
-// --- Sound Setup (Requires audio tags in index.html to work) ---
-const hitSound = document.getElementById('hit-sound'); // Used for collection
+// --- Sound Setup ---
+const hitSound = document.getElementById('suck-up-sound'); 
+const ambientSound = document.getElementById('ambient-sound');
 const gameMusic = document.getElementById('game-music');
+let audioContextStarted = false; // Flag to track sound initialization
 
 function playSound(sound) {
     if (sound) {
         sound.currentTime = 0;
-        sound.play().catch(e => console.log("Sound play blocked:", e));
+        // The play() function is wrapped in a catch block because browsers sometimes block it.
+        sound.play().catch(e => {
+            if (e.name === 'NotAllowedError') {
+                console.log("Audio play blocked. User interaction needed.");
+            }
+        });
     }
 }
 
+// --- Audio Initialization Function ---
+function startAudio() {
+    if (audioContextStarted) return;
+
+    // Start background audio (often requires play() to be called inside a user event handler)
+    ambientSound.play().catch(e => console.log("Ambient sound failed to start:", e));
+    gameMusic.play().catch(e => console.log("Music failed to start:", e));
+
+    audioContextStarted = true;
+    console.log("Audio started successfully.");
+}
+
+
 // --- Game Variables and Player Size ---
-let currentMass = 0; // Renamed score to mass for theme
+let currentMass = 0; 
 const playerSpeed = 30; 
 const gameHeight = gameContainer.offsetHeight;
 
@@ -22,11 +42,9 @@ let isGameOver = false;
 let gameInterval;
 let fallingObjects = [];
 
-// Player properties
-const initialPlayerSize = 70; // Starting size in px
+const initialPlayerSize = 70; 
 let currentPlayerSize = initialPlayerSize;
 
-// Collectibles (Everything is a collectible: stars, planets, smaller black holes)
 const collectibleEmojis = ['✨', '☄️', '💫', '🌑', '🌎', '🪐', '⚫']; 
 
 
@@ -42,17 +60,21 @@ let { gameWidth, playerX } = getGameDimensions();
 
 window.addEventListener('resize', () => {
     ({ gameWidth } = getGameDimensions());
-    // Recalculate player position to stay within bounds
     playerX = Math.min(gameWidth - player.offsetWidth, Math.max(0, parseInt(player.style.left)));
     player.style.left = playerX + 'px'; 
 });
 
 
-// --- Player Movement (Left/Right) ---
+// --- DUAL CONTROL SETUP (KEYBOARD & TOUCH) ---
+
+// 1. KEYBOARD CONTROLS (For Laptop/Desktop)
 document.addEventListener('keydown', (e) => {
     if (isGameOver) return;
     
-    // Movement
+    // Attempt to start audio on the first key press
+    startAudio();
+
+    // Movement logic
     if (e.key === 'ArrowLeft') {
         playerX = Math.max(0, playerX - playerSpeed);
     } else if (e.key === 'ArrowRight') {
@@ -62,27 +84,56 @@ document.addEventListener('keydown', (e) => {
 });
 
 
+// 2. TOUCH CONTROLS (For Phone/Tablet)
+let touchX = 0; 
+
+gameContainer.addEventListener('touchstart', (e) => {
+    if (isGameOver) return;
+    e.preventDefault();
+    
+    // Attempt to start audio on the first touch
+    startAudio();
+
+    touchX = e.touches[0].clientX;
+});
+
+gameContainer.addEventListener('touchmove', (e) => {
+    if (isGameOver) return;
+    e.preventDefault();
+
+    const newTouchX = e.touches[0].clientX;
+    const deltaX = newTouchX - touchX; 
+    let newPlayerX = parseInt(player.style.left) + deltaX;
+
+    // Constrain movement within the game boundaries
+    newPlayerX = Math.max(0, newPlayerX);
+    newPlayerX = Math.min(gameWidth - player.offsetWidth, newPlayerX);
+
+    player.style.left = newPlayerX + 'px';
+    playerX = newPlayerX;
+
+    touchX = newTouchX; 
+});
+// --- END DUAL CONTROL SETUP ---
+
+
 // --- Object Creation and Movement ---
 function createObject() {
     const obj = document.createElement('div');
     obj.classList.add('collectible');
     
-    // Set emoji and size
     obj.innerHTML = collectibleEmojis[Math.floor(Math.random() * collectibleEmojis.length)];
     
-    // Value of collectible increases as the SMBH player grows
     const baseValue = 50;
     obj.value = baseValue + Math.floor(currentMass / 100); 
 
-    const objSize = 30; // Collectibles are fixed size
+    const objSize = 30; 
     obj.style.fontSize = objSize + 'px';
     
-    // Use dynamic gameWidth for spawning
     obj.style.left = Math.random() * (gameWidth - objSize) + 'px';
     gameContainer.appendChild(obj);
     fallingObjects.push(obj);
 
-    // Speed increases as mass grows, making it harder to catch everything
     const fallSpeed = 1.5 + (currentMass / 500); 
     let objY = 0;
 
@@ -94,7 +145,7 @@ function createObject() {
         
         objY += fallSpeed;
         obj.style.top = objY + 'px';
-
+        
         // Check for boundary collision (Object missed)
         if (objY > gameHeight) {
             clearInterval(moveInterval);
@@ -103,7 +154,6 @@ function createObject() {
             return;
         }
         
-        // --- Continuous Collision Check ---
         checkCollection(obj, moveInterval);
         
     }, 20);
@@ -122,7 +172,6 @@ function checkCollection(obj, moveInterval) {
         objRect.right > playerRect.left &&
         objRect.left < playerRect.right
     ) {
-        // Collection successful!
         clearInterval(moveInterval);
         obj.remove();
         fallingObjects = fallingObjects.filter(o => o !== obj);
@@ -132,24 +181,20 @@ function checkCollection(obj, moveInterval) {
 }
 
 function collectObject(obj) {
-    playSound(hitSound);
+    playSound(hitSound); // Play the "suck up" sound on consumption
     currentMass += obj.value;
     scoreDisplay.textContent = `Mass: ${currentMass}`;
     
-    // Grow the SMBH based on its new mass
     updatePlayerSize();
 }
 
 function updatePlayerSize() {
-    // Determine the new size, growing slowly as mass increases
     const newSize = initialPlayerSize + Math.floor(currentMass / 200);
     
-    // Only update if the size actually changes
     if (newSize > currentPlayerSize) {
         currentPlayerSize = newSize;
         player.style.fontSize = currentPlayerSize + 'px';
         
-        // Game Over condition for reaching max playable size (e.g., 200px)
         if (currentPlayerSize > 200) {
             gameOver("MAXIMUM CONSUMPTION REACHED! You fill the screen!", true);
         }
@@ -159,10 +204,10 @@ function updatePlayerSize() {
 
 // --- Game Flow ---
 function startGame() {
-    gameMusic.play().catch(e => console.log("Music auto-play blocked.", e));
+    // NOTE: We no longer auto-play audio here. It is triggered by the first user input (touch or keydown).
 
     // Initialize player as SMBH
-    player.innerHTML = '⚫'; // Black Hole emoji
+    player.innerHTML = '⚫'; 
     player.style.fontSize = initialPlayerSize + 'px';
     player.style.left = (gameWidth / 2) + 'px';
     scoreDisplay.textContent = `Mass: ${currentMass}`;
@@ -170,13 +215,14 @@ function startGame() {
     // Main object spawning loop
     gameInterval = setInterval(() => {
         createObject();
-    }, 800); // Faster spawning for consumption theme
+    }, 800); 
 }
 
 function gameOver(message, isWin = false) {
     isGameOver = true;
     clearInterval(gameInterval);
     gameMusic.pause();
+    ambientSound.pause();
     
     alert(`${message}\nFinal Mass: ${currentMass}`);
     location.reload(); 
