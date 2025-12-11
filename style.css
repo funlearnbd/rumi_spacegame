@@ -1,0 +1,50 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    /* Space Background */
+    background: url('https://upload.wikimedia.org/wikipedia/commons/e/e0/Milky_Way_Galactic_Center_-_Composite_Image.jpg') no-repeat center center fixed;
+    background-size: cover;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 80vw; 
+    max-width: 600px;
+    height: 80vh; 
+    max-height: 400px;
+    border: 3px solid #fff;
+    background-color: rgba(0, 0, 0, 0.7); 
+    position: relative;
+    overflow: hidden;
+}
+
+#player {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 70px; /* START LARGE */
+    user-select: none;
+    transition: all 0.1s linear; /* Smooth movement and size changes */
+}
+
+/* All falling objects are now smaller Collectibles */
+.collectible {
+    position: absolute;
+    top: 0;
+    font-size: 30px; /* Everything is smaller than the player */
+    user-select: none;
+}
+
+#score {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: #ffcc00;
+    font-size: 24px;
+    text-shadow: 1px 1px 2px #000;
+}
